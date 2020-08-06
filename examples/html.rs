@@ -1,20 +1,16 @@
 use std::sync::Arc;
 
-use metrics::{Key, Recorder};
-use metrics_exporter_statsd::{html, Registry, StatsdBuilder};
+use metrics::{counter, gauge, register_counter, Key, Recorder};
+use metrics_exporter_statsd::{HtmlExporter, MetricsBuilder};
 use warp::Filter;
 
 #[tokio::main]
 async fn main() {
-    let registry = Arc::new(Registry::new());
-
-    let recorder = StatsdBuilder::new()
-        .build_with_registry(registry.clone())
-        .unwrap();
+    let collector = MetricsBuilder::new().statsd(false).build().unwrap();
+    let recorder = collector.recorder();
 
     let c0 = recorder.register_counter(Key::from_name("spam"), None);
-    let c1 = recorder.register_counter(Key::from_name("ham"), None);
-    let g0 = recorder.register_gauge(Key::from_name("eggs"), None);
+    register_counter!("ham");
 
     std::thread::spawn(move || {
         use rand::distributions::Uniform;
@@ -26,8 +22,8 @@ async fn main() {
 
         loop {
             recorder.increment_counter(c0, rng.sample(counter));
-            recorder.increment_counter(c1, rng.sample(counter));
-            recorder.update_gauge(g0, rng.sample(gauge));
+            counter!("ham", rng.sample(counter));
+            gauge!("eggs", rng.sample(gauge));
 
             std::thread::sleep(std::time::Duration::from_secs(10));
         }
@@ -35,11 +31,12 @@ async fn main() {
 
     let index = warp::get()
         .and(warp::path::end())
-        .map(|| warp::reply::html(html::INDEX));
-    let js = warp::path("graph.js")
-        .map(|| warp::reply::with_header(html::JS, "content-type", "application/javascript"));
-    let json =
-        warp::path("data.json").map(move || warp::reply::json(&html::metrics_json(&registry)));
+        .map(|| warp::reply::html(HtmlExporter::INDEX));
+    let js = warp::path("graph.js").map(|| {
+        warp::reply::with_header(HtmlExporter::JS, "content-type", "application/javascript")
+    });
+    let html = collector.html();
+    let json = warp::path("data.json").map(move || warp::reply::json(&html.json_snapshot()));
 
     let routes = index.or(js).or(json);
 

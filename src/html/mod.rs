@@ -1,6 +1,4 @@
 //! A simple HTML Frontend for metrics
-//!
-//! This
 
 use std::sync::Arc;
 
@@ -9,30 +7,42 @@ use serde_json::{json, Map, Value};
 
 use crate::recorder::PlainRecorder;
 
-/// The static index page that needs to be served as `index.html`.
-pub static INDEX: &str = include_str!("index.html");
+#[derive(Debug, Clone)]
+pub struct HtmlExporter {
+    recorder: Arc<PlainRecorder>,
+}
 
-/// The static index page that needs to be served as `graph.js`.
-pub static JS: &str = include_str!("graph.js");
+impl HtmlExporter {
+    /// The static index page that needs to be served as `index.html`.
+    pub const INDEX: &'static str = include_str!("index.html");
 
-/// Snapshots the current state of the `registry` as JSON.
-///
-/// This can be served as a `data.json` file.
-pub(crate) fn metrics_json(recorder: &PlainRecorder) -> Value {
-    let metrics: Map<String, Value> = recorder
-        .registry
-        .get_handles()
-        .into_iter()
-        .map(|(desc, handle)| {
-            (
-                desc.key().name().to_string(),
-                match desc.kind() {
-                    MetricKind::Counter => handle.read_counter().into(),
-                    MetricKind::Gauge => handle.read_gauge().into(),
-                    MetricKind::Histogram => handle.read_histogram().into(),
-                },
-            )
-        })
-        .collect();
-    json!({ "metrics": metrics })
+    /// The static index page that needs to be served as `graph.js`.
+    pub const JS: &'static str = include_str!("graph.js");
+
+    pub(crate) fn new(recorder: Arc<PlainRecorder>) -> Self {
+        Self { recorder }
+    }
+
+    /// Snapshots the current state of the `registry` as JSON.
+    ///
+    /// This can be served as a `data.json` file.
+    pub fn json_snapshot(&self) -> Value {
+        let metrics: Map<String, Value> = self
+            .recorder
+            .registry
+            .get_handles()
+            .into_iter()
+            .map(|(desc, handle)| {
+                (
+                    desc.key().name().to_string(),
+                    match desc.kind() {
+                        MetricKind::Counter => handle.read_counter().into(),
+                        MetricKind::Gauge => handle.read_gauge().into(),
+                        MetricKind::Histogram => handle.read_histogram().into(),
+                    },
+                )
+            })
+            .collect();
+        json!({ "metrics": metrics })
+    }
 }

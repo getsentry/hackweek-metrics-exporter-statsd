@@ -1,10 +1,18 @@
 //! Plain recorder.
 
+use std::fmt;
+
 use metrics::{Identifier, Key, Recorder};
 use metrics_util::{CompositeKey, Handle, MetricKind, Registry};
 
 pub(crate) struct PlainRecorder {
     pub(crate) registry: Registry<CompositeKey, Handle>,
+}
+
+impl fmt::Debug for PlainRecorder {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("PlainRecorder").finish()
+    }
 }
 
 impl PlainRecorder {

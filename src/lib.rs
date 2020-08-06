@@ -11,8 +11,10 @@ mod statsd;
 
 use crate::recorder::PlainRecorder;
 use crate::statsd::StatsdExporter;
-use serde_json::Value;
 
+pub use html::HtmlExporter;
+
+#[derive(Debug, Clone)]
 pub struct MetricsBuilder {
     statsd: bool,
     local_addr: SocketAddr,
@@ -69,14 +71,23 @@ impl MetricsBuilder {
     }
 }
 
+#[derive(Debug)]
 pub struct MetricsCollector {
     recorder: Arc<PlainRecorder>,
     statsd_exporter: Option<StatsdExporter>,
 }
 
 impl MetricsCollector {
-    pub fn json_snapshot(&self) -> Value {
-        html::metrics_json(&*self.recorder)
+    /// Return an HtmlExporter which can be used to show the collected metrics.
+    pub fn html(&self) -> HtmlExporter {
+        HtmlExporter::new(self.recorder.clone())
+    }
+
+    /// Return the underlying recorder instance.
+    ///
+    /// This can be used to directly invoke `Recorder::register_counter()` etc functions.
+    pub fn recorder(&self) -> Arc<impl metrics::Recorder> {
+        self.recorder.clone()
     }
 }
 

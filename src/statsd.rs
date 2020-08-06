@@ -8,6 +8,7 @@ use metrics_util::MetricKind;
 
 use crate::recorder::PlainRecorder;
 
+#[derive(Debug)]
 pub struct StatsdExporter {
     local_socket: UdpSocket,
     peer_addr: SocketAddr,
