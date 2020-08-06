@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <title>Metrics</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+    <script src="https://d3js.org/d3.v5.min.js"></script>
+    <script src="https://unpkg.com/htl@0.2.0/dist/htl.min.js"></script>
+    <style type="text/css">
+      .main {
+        max-width: 1600px;
+        margin: auto;
+      }
+      .main h1 {
+        text-align: center;
+      }
+      .graphs {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, 350px);
+        gap: 20px 5px;
+        justify-content: center;
+      }
+      .graph .title {
+        text-anchor: end;
+        font-size: 1.75em;
+        font-family: sans-serif;
+        fill: gray;
+        opacity: 0.5;
+      }
+      .graph .value {
+        text-anchor: end;
+        font-size: 3em;
+        font-family: sans-serif;
+        fill: lightblue;
+        opacity: 0.75;
+      }
+      .graph .line {
+        fill: none;
+        stroke: lightblue;
+        stroke-width: 1.5;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="main">
+      <h1>Metrics</h1>
+    </main>
+    <script type="application/javascript" src="graph.js"></script>
+  </body>
+</html>

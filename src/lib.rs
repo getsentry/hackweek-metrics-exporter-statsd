@@ -1,5 +1,7 @@
 //! A [`metrics`][metrics]-compatible exporter that outputs metrics using statsd.
 
+pub mod html;
+
 use std::io;
 use std::net::{Ipv6Addr, SocketAddr, UdpSocket};
 use std::sync::Arc;
@@ -7,7 +9,9 @@ use std::time::Duration;
 
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 use metrics::{Identifier, Key, Recorder};
-use metrics_util::{CompositeKey, Handle, MetricKind, Registry};
+use metrics_util::{CompositeKey, Handle, MetricKind};
+
+pub type Registry = metrics_util::Registry<CompositeKey, Handle>;
 
 #[derive(Debug)]
 pub enum Error {
@@ -29,7 +33,7 @@ impl StatsdBuilder {
         }
     }
 
-    pub fn create_registry() -> Registry<CompositeKey, Handle> {
+    pub fn create_registry() -> Registry {
         Registry::new()
     }
 
@@ -59,7 +63,7 @@ impl StatsdBuilder {
 
     pub fn build_with_registry(
         &self,
-        registry: Arc<Registry<CompositeKey, Handle>>,
+        registry: Arc<Registry>,
     ) -> Result<StatsdRecorder, io::Error> {
         Ok(StatsdRecorder {
             local_socket: UdpSocket::bind(self.local_addr)?,
@@ -74,7 +78,7 @@ pub struct StatsdRecorder {
     local_socket: UdpSocket,
     peer_addr: SocketAddr,
     interval: Duration,
-    registry: Arc<Registry<CompositeKey, Handle>>,
+    registry: Arc<Registry>,
 }
 
 impl Recorder for StatsdRecorder {
