@@ -2,6 +2,7 @@
 
 use std::io;
 use std::net::{Ipv6Addr, SocketAddr, UdpSocket};
+use std::sync::Arc;
 use std::time::Duration;
 
 use bytes::{Buf, BufMut, Bytes, BytesMut};
@@ -28,6 +29,10 @@ impl StatsdBuilder {
         }
     }
 
+    pub fn create_registry() -> Registry<CompositeKey, Handle> {
+        Registry::new()
+    }
+
     pub fn local_addr<'a>(&'a mut self, addr: SocketAddr) -> &'a mut Self {
         self.local_addr = addr;
         self
@@ -48,7 +53,19 @@ impl StatsdBuilder {
             local_socket: UdpSocket::bind(self.local_addr)?,
             peer_addr: self.peer_addr,
             interval: self.interval,
-            registry: Registry::new(),
+            registry: Arc::new(Self::create_registry()),
+        })
+    }
+
+    pub fn build_with_registry(
+        &self,
+        registry: Arc<Registry<CompositeKey, Handle>>,
+    ) -> Result<StatsdRecorder, io::Error> {
+        Ok(StatsdRecorder {
+            local_socket: UdpSocket::bind(self.local_addr)?,
+            peer_addr: self.peer_addr,
+            interval: self.interval,
+            registry,
         })
     }
 }
@@ -57,7 +74,7 @@ pub struct StatsdRecorder {
     local_socket: UdpSocket,
     peer_addr: SocketAddr,
     interval: Duration,
-    registry: Registry<CompositeKey, Handle>,
+    registry: Arc<Registry<CompositeKey, Handle>>,
 }
 
 impl Recorder for StatsdRecorder {
