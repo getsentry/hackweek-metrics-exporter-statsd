@@ -1,6 +1,5 @@
 use std::io;
 use std::net::{SocketAddr, UdpSocket};
-use std::sync::Arc;
 use std::time::Duration;
 
 use bytes::{Buf, BufMut, Bytes, BytesMut};
@@ -13,7 +12,7 @@ pub struct StatsdExporter {
     local_socket: UdpSocket,
     peer_addr: SocketAddr,
     interval: Duration,
-    recorder: Arc<PlainRecorder>,
+    recorder: PlainRecorder,
 }
 
 impl StatsdExporter {
@@ -21,7 +20,7 @@ impl StatsdExporter {
         local_socket: UdpSocket,
         peer_addr: SocketAddr,
         interval: Duration,
-        recorder: Arc<PlainRecorder>,
+        recorder: PlainRecorder,
     ) -> Self {
         Self {
             local_socket,

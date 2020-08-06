@@ -6,7 +6,7 @@ use warp::Filter;
 
 #[tokio::main]
 async fn main() {
-    let collector = MetricsBuilder::new().statsd(false).build().unwrap();
+    let collector = MetricsBuilder::new().statsd(false).install().unwrap();
     let recorder = collector.recorder();
 
     let c0 = recorder.register_counter(Key::from_name("spam"), None);

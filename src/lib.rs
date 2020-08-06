@@ -5,6 +5,8 @@ use std::net::{Ipv6Addr, SocketAddr, UdpSocket};
 use std::sync::Arc;
 use std::time::Duration;
 
+use metrics::{self, SetRecorderError};
+
 mod html;
 mod recorder;
 mod statsd;
@@ -20,6 +22,12 @@ pub struct MetricsBuilder {
     local_addr: SocketAddr,
     peer_addr: SocketAddr,
     interval: Duration,
+}
+
+#[derive(Debug)]
+pub enum InstallError {
+    Build(io::Error),
+    Install(SetRecorderError),
 }
 
 impl MetricsBuilder {
@@ -53,7 +61,7 @@ impl MetricsBuilder {
     }
 
     pub fn build(&self) -> Result<MetricsCollector, io::Error> {
-        let recorder = Arc::new(PlainRecorder::new());
+        let recorder = PlainRecorder::new();
         let statsd_exporter = if self.statsd {
             Some(StatsdExporter::new(
                 UdpSocket::bind(self.local_addr)?,
@@ -69,11 +77,18 @@ impl MetricsBuilder {
             statsd_exporter,
         })
     }
+
+    pub fn install(&self) -> Result<MetricsCollector, InstallError> {
+        let collector = self.build().map_err(|e| InstallError::Build(e))?;
+        metrics::set_boxed_recorder(Box::new(collector.recorder()))
+            .map_err(|e| InstallError::Install(e))?;
+        Ok(collector)
+    }
 }
 
 #[derive(Debug)]
 pub struct MetricsCollector {
-    recorder: Arc<PlainRecorder>,
+    recorder: PlainRecorder,
     statsd_exporter: Option<StatsdExporter>,
 }
 
@@ -86,7 +101,7 @@ impl MetricsCollector {
     /// Return the underlying recorder instance.
     ///
     /// This can be used to directly invoke `Recorder::register_counter()` etc functions.
-    pub fn recorder(&self) -> Arc<impl metrics::Recorder> {
+    pub fn recorder(&self) -> impl metrics::Recorder {
         self.recorder.clone()
     }
 }

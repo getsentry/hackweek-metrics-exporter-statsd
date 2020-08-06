@@ -1,7 +1,5 @@
 //! A simple HTML Frontend for metrics
 
-use std::sync::Arc;
-
 use metrics_util::MetricKind;
 use serde_json::{json, Map, Value};
 
@@ -9,7 +7,7 @@ use crate::recorder::PlainRecorder;
 
 #[derive(Debug, Clone)]
 pub struct HtmlExporter {
-    recorder: Arc<PlainRecorder>,
+    recorder: PlainRecorder,
 }
 
 impl HtmlExporter {
@@ -19,7 +17,7 @@ impl HtmlExporter {
     /// The static index page that needs to be served as `graph.js`.
     pub const JS: &'static str = include_str!("graph.js");
 
-    pub(crate) fn new(recorder: Arc<PlainRecorder>) -> Self {
+    pub(crate) fn new(recorder: PlainRecorder) -> Self {
         Self { recorder }
     }
 

@@ -1,12 +1,17 @@
 //! Plain recorder.
 
 use std::fmt;
+use std::sync::Arc;
 
 use metrics::{Identifier, Key, Recorder};
 use metrics_util::{CompositeKey, Handle, MetricKind, Registry};
 
+/// A simple recorder doing nothing fancy but record the plain values.
+///
+/// Cloning this is cheap since the clones will refer to the same metrics storage.
+#[derive(Clone)]
 pub(crate) struct PlainRecorder {
-    pub(crate) registry: Registry<CompositeKey, Handle>,
+    pub(crate) registry: Arc<Registry<CompositeKey, Handle>>,
 }
 
 impl fmt::Debug for PlainRecorder {
@@ -18,7 +23,7 @@ impl fmt::Debug for PlainRecorder {
 impl PlainRecorder {
     pub(crate) fn new() -> Self {
         Self {
-            registry: Registry::new(),
+            registry: Arc::new(Registry::new()),
         }
     }
 }
