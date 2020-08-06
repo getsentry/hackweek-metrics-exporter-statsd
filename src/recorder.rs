@@ -65,3 +65,48 @@ impl Recorder for PlainRecorder {
             .with_handle(id, move |handle| handle.record_histogram(value));
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_counter() {
+        let rec = PlainRecorder::new();
+
+        let c0 = rec.register_counter(Key::from_name("spam.ham"), None);
+        let c1 = rec.register_counter(Key::from_name("spam.eggs"), None);
+        let c2 = rec.register_counter(Key::from_name("spam.ham"), None);
+        assert_eq!(c0, c2);
+        assert_ne!(c0, c1);
+
+        rec.increment_counter(c0, 1);
+        rec.registry.with_handle(c0, |handle| {
+            assert_eq!(handle.read_counter(), 1);
+        });
+        rec.increment_counter(c0, 2);
+        rec.registry.with_handle(c0, |handle| {
+            assert_eq!(handle.read_counter(), 3);
+        });
+    }
+
+    #[test]
+    fn test_register_gauge() {
+        let rec = PlainRecorder::new();
+
+        let g0 = rec.register_gauge(Key::from_name("spam.ham"), None);
+        let g1 = rec.register_gauge(Key::from_name("spam.eggs"), None);
+        let g2 = rec.register_gauge(Key::from_name("spam.ham"), None);
+        assert_eq!(g0, g2);
+        assert_ne!(g0, g1);
+
+        rec.update_gauge(g0, 7.0);
+        rec.registry.with_handle(g0, |handle| {
+            assert_eq!(handle.read_gauge(), 7.0);
+        });
+        rec.update_gauge(g0, 3.0);
+        rec.registry.with_handle(g0, |handle| {
+            assert_eq!(handle.read_gauge(), 3.0);
+        });
+    }
+}

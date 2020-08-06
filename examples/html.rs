@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use metrics::{counter, gauge, register_counter, Key, Recorder};
 use metrics_exporter_statsd::{HtmlExporter, MetricsBuilder};
 use warp::Filter;
