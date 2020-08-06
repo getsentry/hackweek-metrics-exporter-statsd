@@ -11,6 +11,7 @@ mod statsd;
 
 use crate::recorder::PlainRecorder;
 use crate::statsd::StatsdExporter;
+use serde_json::Value;
 
 pub struct MetricsBuilder {
     statsd: bool,
@@ -71,6 +72,12 @@ impl MetricsBuilder {
 pub struct MetricsCollector {
     recorder: Arc<PlainRecorder>,
     statsd_exporter: Option<StatsdExporter>,
+}
+
+impl MetricsCollector {
+    pub fn json_snapshot(&self) -> Value {
+        html::metrics_json(&*self.recorder)
+    }
 }
 
 #[cfg(test)]

@@ -18,7 +18,7 @@ pub static JS: &str = include_str!("graph.js");
 /// Snapshots the current state of the `registry` as JSON.
 ///
 /// This can be served as a `data.json` file.
-pub fn metrics_json(recorder: Arc<PlainRecorder>) -> Value {
+pub(crate) fn metrics_json(recorder: &PlainRecorder) -> Value {
     let metrics: Map<String, Value> = recorder
         .registry
         .get_handles()
