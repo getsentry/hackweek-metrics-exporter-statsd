@@ -1,40 +1,37 @@
 //! A [`metrics`][metrics]-compatible exporter that outputs metrics using statsd.
 
-pub mod html;
-
 use std::io;
 use std::net::{Ipv6Addr, SocketAddr, UdpSocket};
 use std::sync::Arc;
 use std::time::Duration;
 
-use bytes::{Buf, BufMut, Bytes, BytesMut};
-use metrics::{Identifier, Key, Recorder};
-use metrics_util::{CompositeKey, Handle, MetricKind};
+mod html;
+mod recorder;
+mod statsd;
 
-pub type Registry = metrics_util::Registry<CompositeKey, Handle>;
+use crate::recorder::PlainRecorder;
+use crate::statsd::StatsdExporter;
 
-#[derive(Debug)]
-pub enum Error {
-    Dummy,
-}
-
-pub struct StatsdBuilder {
+pub struct MetricsBuilder {
+    statsd: bool,
     local_addr: SocketAddr,
     peer_addr: SocketAddr,
     interval: Duration,
 }
 
-impl StatsdBuilder {
+impl MetricsBuilder {
     pub fn new() -> Self {
         Self {
+            statsd: true,
             local_addr: SocketAddr::from((Ipv6Addr::UNSPECIFIED, 0)),
             peer_addr: SocketAddr::from((Ipv6Addr::LOCALHOST, 8125)),
             interval: Duration::from_secs(5),
         }
     }
 
-    pub fn create_registry() -> Registry {
-        Registry::new()
+    pub fn statsd<'a>(&'a mut self, enabled: bool) -> &'a mut Self {
+        self.statsd = enabled;
+        self
     }
 
     pub fn local_addr<'a>(&'a mut self, addr: SocketAddr) -> &'a mut Self {
@@ -52,116 +49,28 @@ impl StatsdBuilder {
         self
     }
 
-    pub fn build(&self) -> Result<StatsdRecorder, io::Error> {
-        Ok(StatsdRecorder {
-            local_socket: UdpSocket::bind(self.local_addr)?,
-            peer_addr: self.peer_addr,
-            interval: self.interval,
-            registry: Arc::new(Self::create_registry()),
-        })
-    }
-
-    pub fn build_with_registry(
-        &self,
-        registry: Arc<Registry>,
-    ) -> Result<StatsdRecorder, io::Error> {
-        Ok(StatsdRecorder {
-            local_socket: UdpSocket::bind(self.local_addr)?,
-            peer_addr: self.peer_addr,
-            interval: self.interval,
-            registry,
+    pub fn build(&self) -> Result<MetricsCollector, io::Error> {
+        let recorder = Arc::new(PlainRecorder::new());
+        let statsd_exporter = if self.statsd {
+            Some(StatsdExporter::new(
+                UdpSocket::bind(self.local_addr)?,
+                self.peer_addr,
+                self.interval,
+                recorder.clone(),
+            ))
+        } else {
+            None
+        };
+        Ok(MetricsCollector {
+            recorder,
+            statsd_exporter,
         })
     }
 }
 
-pub struct StatsdRecorder {
-    local_socket: UdpSocket,
-    peer_addr: SocketAddr,
-    interval: Duration,
-    registry: Arc<Registry>,
-}
-
-impl Recorder for StatsdRecorder {
-    fn register_counter(&self, key: Key, _description: Option<&'static str>) -> Identifier {
-        self.registry
-            .get_or_create_identifier(CompositeKey::new(MetricKind::Counter, key), |_key| {
-                Handle::counter()
-            })
-    }
-
-    fn register_gauge(&self, key: Key, _description: Option<&'static str>) -> Identifier {
-        self.registry
-            .get_or_create_identifier(CompositeKey::new(MetricKind::Gauge, key), |_key| {
-                Handle::gauge()
-            })
-    }
-
-    fn register_histogram(&self, key: Key, _description: Option<&'static str>) -> Identifier {
-        self.registry
-            .get_or_create_identifier(CompositeKey::new(MetricKind::Histogram, key), |_key| {
-                Handle::histogram()
-            })
-    }
-
-    fn increment_counter(&self, id: Identifier, value: u64) {
-        self.registry
-            .with_handle(id, move |handle| handle.increment_counter(value));
-    }
-
-    fn update_gauge(&self, id: Identifier, value: f64) {
-        self.registry
-            .with_handle(id, move |handle| handle.update_gauge(value));
-    }
-
-    fn record_histogram(&self, id: Identifier, value: u64) {
-        self.registry
-            .with_handle(id, move |handle| handle.record_histogram(value));
-    }
-}
-
-impl StatsdRecorder {
-    fn export(&self) -> Bytes {
-        // TODO: re-use the allocated buffer
-        // TODO: chunk this into 512 byte buffers
-        // TODO: re-set the data sent, only send updates
-        let mut buf = BytesMut::with_capacity(512);
-        for (desc, handle) in self.registry.get_handles() {
-            match desc.kind() {
-                MetricKind::Counter | MetricKind::Gauge => (),
-                _ => continue,
-            }
-            let metric_name = desc.key().name();
-            buf.put_slice(metric_name.as_bytes());
-            buf.put_slice(":".as_bytes());
-            match desc.kind() {
-                MetricKind::Counter => {
-                    buf.put_slice(format!("{}|c", handle.read_counter()).as_bytes());
-                }
-                MetricKind::Gauge => {
-                    buf.put_slice(format!("{}|g", handle.read_gauge()).as_bytes());
-                }
-                _ => continue,
-            }
-            buf.put_slice("\n".as_bytes());
-        }
-        buf.freeze()
-    }
-
-    fn send(&self) -> io::Result<()> {
-        let mut data = self.export();
-        while data.has_remaining() {
-            let count = self.local_socket.send_to(data.bytes(), &self.peer_addr)?;
-            data.advance(count);
-        }
-        Ok(())
-    }
-
-    pub fn run(self) {
-        loop {
-            std::thread::sleep(self.interval);
-            self.send().unwrap();
-        }
-    }
+pub struct MetricsCollector {
+    recorder: Arc<PlainRecorder>,
+    statsd_exporter: Option<StatsdExporter>,
 }
 
 #[cfg(test)]

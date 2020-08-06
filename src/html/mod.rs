@@ -2,10 +2,12 @@
 //!
 //! This
 
+use std::sync::Arc;
+
 use metrics_util::MetricKind;
 use serde_json::{json, Map, Value};
 
-use crate::Registry;
+use crate::recorder::PlainRecorder;
 
 /// The static index page that needs to be served as `index.html`.
 pub static INDEX: &str = include_str!("index.html");
@@ -16,8 +18,9 @@ pub static JS: &str = include_str!("graph.js");
 /// Snapshots the current state of the `registry` as JSON.
 ///
 /// This can be served as a `data.json` file.
-pub fn metrics_json(registry: &Registry) -> Value {
-    let metrics: Map<String, Value> = registry
+pub fn metrics_json(recorder: Arc<PlainRecorder>) -> Value {
+    let metrics: Map<String, Value> = recorder
+        .registry
         .get_handles()
         .into_iter()
         .map(|(desc, handle)| {
