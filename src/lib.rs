@@ -2,6 +2,7 @@
 
 use std::io;
 use std::net::{Ipv6Addr, SocketAddr, UdpSocket};
+use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
 use metrics::{self, SetRecorderError};
@@ -59,36 +60,44 @@ impl MetricsBuilder {
         self
     }
 
-    pub fn build(&self) -> Result<MetricsCollector, io::Error> {
+    fn create_exporter(&self, recorder: PlainRecorder) -> Result<StatsdExporter, io::Error> {
+        Ok(StatsdExporter::new(
+            UdpSocket::bind(self.local_addr)?,
+            self.peer_addr,
+            self.interval,
+            recorder,
+        ))
+    }
+
+    pub fn install(&self) -> Result<MetricsCollector, InstallError> {
         let recorder = PlainRecorder::new();
-        let statsd_exporter = if self.statsd {
-            Some(StatsdExporter::new(
-                UdpSocket::bind(self.local_addr)?,
-                self.peer_addr,
-                self.interval,
-                recorder.clone(),
-            ))
+        let exporter = self
+            .create_exporter(recorder.clone())
+            .map_err(|e| InstallError::Build(e))?;
+        metrics::set_boxed_recorder(Box::new(recorder.clone()))
+            .map_err(|e| InstallError::Install(e))?;
+        let handle = if self.statsd {
+            let handle = thread::spawn(move || match exporter.run() {
+                Ok(()) => (),
+                Err(e) => {
+                    log::error!("Statsd exporter failed: {}", e);
+                }
+            });
+            Some(handle)
         } else {
             None
         };
         Ok(MetricsCollector {
             recorder,
-            statsd_exporter,
+            statsd_handle: handle,
         })
-    }
-
-    pub fn install(&self) -> Result<MetricsCollector, InstallError> {
-        let collector = self.build().map_err(|e| InstallError::Build(e))?;
-        metrics::set_boxed_recorder(Box::new(collector.recorder()))
-            .map_err(|e| InstallError::Install(e))?;
-        Ok(collector)
     }
 }
 
 #[derive(Debug)]
 pub struct MetricsCollector {
     recorder: PlainRecorder,
-    statsd_exporter: Option<StatsdExporter>,
+    statsd_handle: Option<JoinHandle<()>>,
 }
 
 impl MetricsCollector {
@@ -102,31 +111,5 @@ impl MetricsCollector {
     /// This can be used to directly invoke `Recorder::register_counter()` etc functions.
     pub fn recorder(&self) -> impl metrics::Recorder {
         self.recorder.clone()
-    }
-
-    #[cfg(test)]
-    pub(crate) fn with_handle<F, V>(&self, identifier: metrics::Identifier, f: F) -> Option<V>
-    where
-        F: FnOnce(&metrics_util::Handle) -> V,
-    {
-        self.recorder.registry.with_handle(identifier, f)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    use metrics::{Key, Recorder};
-
-    #[test]
-    fn test_record_counter() {
-        let collector = MetricsBuilder::new().statsd(false).build().unwrap();
-        let recorder = collector.recorder();
-        let c0 = recorder.register_counter(Key::from_name("spam"), None);
-        recorder.increment_counter(c0, 1);
-        collector.with_handle(c0, |handle| {
-            assert_eq!(handle.read_counter(), 1);
-        });
     }
 }

@@ -66,10 +66,10 @@ impl StatsdExporter {
         Ok(())
     }
 
-    pub fn run(self) {
+    pub fn run(self) -> io::Result<()> {
         loop {
             std::thread::sleep(self.interval);
-            self.send().unwrap();
+            self.send()?;
         }
     }
 }
@@ -99,7 +99,7 @@ mod tests {
 
     #[test]
     fn test_export_counter() {
-        let (exporter, recv_socket) = statsd_exporter();
+        let (exporter, _recv_socket) = statsd_exporter();
 
         let c0 = exporter
             .recorder
@@ -114,7 +114,7 @@ mod tests {
 
     #[test]
     fn test_export_gauge() {
-        let (exporter, recv_socket) = statsd_exporter();
+        let (exporter, _recv_socket) = statsd_exporter();
 
         let g0 = exporter
             .recorder
