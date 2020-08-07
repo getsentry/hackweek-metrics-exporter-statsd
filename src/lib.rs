@@ -40,22 +40,22 @@ impl MetricsBuilder {
         }
     }
 
-    pub fn statsd<'a>(&'a mut self, enabled: bool) -> &'a mut Self {
+    pub fn statsd(&mut self, enabled: bool) -> &mut Self {
         self.statsd = enabled;
         self
     }
 
-    pub fn local_addr<'a>(&'a mut self, addr: SocketAddr) -> &'a mut Self {
+    pub fn local_addr(&mut self, addr: SocketAddr) -> &mut Self {
         self.local_addr = addr;
         self
     }
 
-    pub fn statsd_addr<'a>(&'a mut self, addr: SocketAddr) -> &'a mut Self {
+    pub fn statsd_addr(&mut self, addr: SocketAddr) -> &mut Self {
         self.peer_addr = addr;
         self
     }
 
-    pub fn interval<'a>(&'a mut self, duration: Duration) -> &'a mut Self {
+    pub fn interval(&mut self, duration: Duration) -> &mut Self {
         self.interval = duration;
         self
     }
@@ -73,9 +73,8 @@ impl MetricsBuilder {
         let recorder = PlainRecorder::new();
         let exporter = self
             .create_exporter(recorder.clone())
-            .map_err(|e| InstallError::Build(e))?;
-        metrics::set_boxed_recorder(Box::new(recorder.clone()))
-            .map_err(|e| InstallError::Install(e))?;
+            .map_err(InstallError::Build)?;
+        metrics::set_boxed_recorder(Box::new(recorder.clone())).map_err(InstallError::Install)?;
         let handle = if self.statsd {
             let handle = thread::spawn(move || match exporter.run() {
                 Ok(()) => (),
@@ -91,6 +90,12 @@ impl MetricsBuilder {
             recorder,
             statsd_handle: handle,
         })
+    }
+}
+
+impl Default for MetricsBuilder {
+    fn default() -> Self {
+        MetricsBuilder::new()
     }
 }
 

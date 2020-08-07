@@ -42,7 +42,7 @@ impl StatsdExporter {
             }
             let metric_name = desc.key().name();
             buf.put_slice(metric_name.as_bytes());
-            buf.put_slice(":".as_bytes());
+            buf.put_slice(b":");
             match desc.kind() {
                 MetricKind::Counter => {
                     buf.put_slice(format!("{}|c", handle.read_counter()).as_bytes());
@@ -52,7 +52,7 @@ impl StatsdExporter {
                 }
                 _ => continue,
             }
-            buf.put_slice("\n".as_bytes());
+            buf.put_slice(b"\n");
         }
         buf.freeze()
     }

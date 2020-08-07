@@ -102,11 +102,11 @@ mod tests {
 
         rec.update_gauge(g0, 7.0);
         rec.registry.with_handle(g0, |handle| {
-            assert_eq!(handle.read_gauge(), 7.0);
+            assert!((handle.read_gauge() - 7.0).abs() < f64::EPSILON);
         });
         rec.update_gauge(g0, 3.0);
         rec.registry.with_handle(g0, |handle| {
-            assert_eq!(handle.read_gauge(), 3.0);
+            assert!((handle.read_gauge() - 3.0).abs() < f64::EPSILON);
         });
     }
 }
